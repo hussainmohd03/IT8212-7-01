@@ -2,15 +2,15 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "location": {
-      "type": "string",
-      "defaultValue": "[resourceGroup().location]"
-    },
     "adminUsername": {
       "type": "string"
     },
     "adminPassword": {
       "type": "secureString"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "East US"
     }
   },
   "variables": {
@@ -18,7 +18,8 @@
     "subnetName": "mySubnet",
     "addressPrefix": "10.0.0.0/16",
     "subnetPrefix": "10.0.0.0/24",
-    "vmSize": "Standard_B2s",
+    "nic1Name": "vm1-nic",
+    "nic2Name": "vm2-nic",
     "vm1Name": "vm1",
     "vm2Name": "vm2",
     "imagePublisher": "MicrosoftWindowsServer",
@@ -30,8 +31,6 @@
     "backendPoolName": "myBackendPool",
     "probeName": "myHealthProbe",
     "loadBalancingRuleName": "myLoadBalancingRule",
-    "nic1Name": "vm1-nic",
-    "nic2Name": "vm2-nic",
     "scriptUrl": "https://raw.githubusercontent.com/Azure-Samples/scripts/master/install-iis.ps1"
   },
   "resources": [
@@ -169,7 +168,7 @@
       "location": "[parameters('location')]",
       "properties": {
         "hardwareProfile": {
-          "vmSize": "[variables('vmSize')]"
+          "vmSize": "Standard_B2s"
         },
         "osProfile": {
           "computerName": "[variables('vm1Name')]",
@@ -211,7 +210,7 @@
         "autoUpgradeMinorVersion": true,
         "settings": {
           "fileUris": [
-            "[variables('scriptUrl')]"
+            "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/refs/heads/main/install-iis.ps1"
           ],
           "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File install-iis.ps1"
         }
@@ -224,7 +223,7 @@
       "location": "[parameters('location')]",
       "properties": {
         "hardwareProfile": {
-          "vmSize": "[variables('vmSize')]"
+          "vmSize": "Standard_B2s"
         },
         "osProfile": {
           "computerName": "[variables('vm2Name')]",
@@ -252,4 +251,25 @@
       }
     },
     {
-      "type": "Microsoft
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2021-03-01",
+      "name": "[concat(variables('vm2Name'), '/installIIS')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', variables('vm2Name'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.10",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/refs/heads/main/install-iis.ps1"
+          ],
+          "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File install-iis.ps1"
+        }
+      }
+    }
+  ]
+}
