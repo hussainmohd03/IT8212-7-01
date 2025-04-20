@@ -2,54 +2,54 @@
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "adminUsername": {
-      "type": "string"
-    },
-    "adminPassword": {
-      "type": "secureString"
-    },
     "location": {
       "type": "string",
-      "defaultValue": "East US"
+      "defaultValue": "East US",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Admin username for VM."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Admin password for VM."
+      }
     }
   },
   "variables": {
     "vnetName": "myVnet",
     "subnetName": "mySubnet",
-    "addressPrefix": "10.0.0.0/16",
-    "subnetPrefix": "10.0.0.0/24",
     "nic1Name": "vm1-nic",
     "nic2Name": "vm2-nic",
-    "vm1Name": "vm1",
-    "vm2Name": "vm2",
-    "imagePublisher": "MicrosoftWindowsServer",
-    "imageOffer": "WindowsServer",
-    "imageSku": "2019-Datacenter",
-    "imageVersion": "latest",
+    "vm1Name": "myVM1",
+    "vm2Name": "myVM2",
     "loadBalancerName": "myILB",
-    "frontendIPConfigName": "myFrontendConfig",
     "backendPoolName": "myBackendPool",
-    "probeName": "myHealthProbe",
-    "loadBalancingRuleName": "myLoadBalancingRule",
-    "scriptUrl": "https://raw.githubusercontent.com/Azure-Samples/scripts/master/install-iis.ps1"
+    "frontendIPConfigName": "myFrontendIP",
+    "scriptUrl": "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/main/install-iis.ps1"
   },
   "resources": [
     {
       "type": "Microsoft.Network/virtualNetworks",
       "apiVersion": "2020-06-01",
-      "name": "[variables('vnetName')]",
       "location": "[parameters('location')]",
       "properties": {
         "addressSpace": {
           "addressPrefixes": [
-            "[variables('addressPrefix')]"
+            "10.0.0.0/16"
           ]
         },
         "subnets": [
           {
             "name": "[variables('subnetName')]",
             "properties": {
-              "addressPrefix": "[variables('subnetPrefix')]"
+              "addressPrefix": "10.0.0.0/24"
             }
           }
         ]
@@ -58,18 +58,18 @@
     {
       "type": "Microsoft.Network/loadBalancers",
       "apiVersion": "2020-06-01",
-      "name": "[variables('loadBalancerName')]",
       "location": "[parameters('location')]",
+      "name": "[variables('loadBalancerName')]",
       "properties": {
         "frontendIPConfigurations": [
           {
             "name": "[variables('frontendIPConfigName')]",
             "properties": {
+              "privateIPAddress": "10.0.0.4",
+              "privateIPAllocationMethod": "Static",
               "subnet": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
-              },
-              "privateIPAddress": "10.0.0.4",
-              "privateIPAllocationMethod": "Static"
+              }
             }
           }
         ],
@@ -77,45 +77,14 @@
           {
             "name": "[variables('backendPoolName')]"
           }
-        ],
-        "probes": [
-          {
-            "name": "[variables('probeName')]",
-            "properties": {
-              "protocol": "Tcp",
-              "port": 80,
-              "intervalInSeconds": 15,
-              "numberOfProbes": 2
-            }
-          }
-        ],
-        "loadBalancingRules": [
-          {
-            "name": "[variables('loadBalancingRuleName')]",
-            "properties": {
-              "frontendIPConfiguration": {
-                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', variables('loadBalancerName'), variables('frontendIPConfigName'))]"
-              },
-              "backendAddressPool": {
-                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('backendPoolName'))]"
-              },
-              "probe": {
-                "id": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('loadBalancerName'), variables('probeName'))]"
-              },
-              "protocol": "Tcp",
-              "frontendPort": 80,
-              "backendPort": 80,
-              "idleTimeoutInMinutes": 15
-            }
-          }
         ]
       }
     },
     {
       "type": "Microsoft.Network/networkInterfaces",
       "apiVersion": "2020-06-01",
-      "name": "[variables('nic1Name')]",
       "location": "[parameters('location')]",
+      "name": "[variables('nic1Name')]",
       "properties": {
         "ipConfigurations": [
           {
@@ -139,8 +108,8 @@
     {
       "type": "Microsoft.Network/networkInterfaces",
       "apiVersion": "2020-06-01",
-      "name": "[variables('nic2Name')]",
       "location": "[parameters('location')]",
+      "name": "[variables('nic2Name')]",
       "properties": {
         "ipConfigurations": [
           {
@@ -164,8 +133,12 @@
     {
       "type": "Microsoft.Compute/virtualMachines",
       "apiVersion": "2020-06-01",
-      "name": "[variables('vm1Name')]",
       "location": "[parameters('location')]",
+      "name": "[variables('vm1Name')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nic1Name'))]",
+        "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
+      ],
       "properties": {
         "hardwareProfile": {
           "vmSize": "Standard_B2s"
@@ -177,10 +150,10 @@
         },
         "storageProfile": {
           "imageReference": {
-            "publisher": "[variables('imagePublisher')]",
-            "offer": "[variables('imageOffer')]",
-            "sku": "[variables('imageSku')]",
-            "version": "[variables('imageVersion')]"
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2019-Datacenter",
+            "version": "latest"
           },
           "osDisk": {
             "createOption": "FromImage"
@@ -196,31 +169,14 @@
       }
     },
     {
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "apiVersion": "2021-03-01",
-      "name": "[concat(variables('vm1Name'), '/installIIS')]",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('vm1Name'))]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Compute",
-        "type": "CustomScriptExtension",
-        "typeHandlerVersion": "1.10",
-        "autoUpgradeMinorVersion": true,
-        "settings": {
-          "fileUris": [
-            "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/refs/heads/main/install-iis.ps1"
-          ],
-          "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File install-iis.ps1"
-        }
-      }
-    },
-    {
       "type": "Microsoft.Compute/virtualMachines",
       "apiVersion": "2020-06-01",
-      "name": "[variables('vm2Name')]",
       "location": "[parameters('location')]",
+      "name": "[variables('vm2Name')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nic2Name'))]",
+        "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
+      ],
       "properties": {
         "hardwareProfile": {
           "vmSize": "Standard_B2s"
@@ -232,10 +188,10 @@
         },
         "storageProfile": {
           "imageReference": {
-            "publisher": "[variables('imagePublisher')]",
-            "offer": "[variables('imageOffer')]",
-            "sku": "[variables('imageSku')]",
-            "version": "[variables('imageVersion')]"
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2019-Datacenter",
+            "version": "latest"
           },
           "osDisk": {
             "createOption": "FromImage"
@@ -252,9 +208,30 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines/extensions",
-      "apiVersion": "2021-03-01",
-      "name": "[concat(variables('vm2Name'), '/installIIS')]",
+      "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
+      "name": "[concat(variables('vm1Name'), '/installIIS')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', variables('vm1Name'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.10",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "[variables('scriptUrl')]"
+          ],
+          "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File install-iis.ps1"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2020-06-01",
+      "location": "[parameters('location')]",
+      "name": "[concat(variables('vm2Name'), '/installIIS')]",
       "dependsOn": [
         "[resourceId('Microsoft.Compute/virtualMachines', variables('vm2Name'))]"
       ],
@@ -265,11 +242,12 @@
         "autoUpgradeMinorVersion": true,
         "settings": {
           "fileUris": [
-            "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/refs/heads/main/install-iis.ps1"
+            "[variables('scriptUrl')]"
           ],
           "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File install-iis.ps1"
         }
       }
     }
-  ]
+  ],
+  "outputs": {}
 }
