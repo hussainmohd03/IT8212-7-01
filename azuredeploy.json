@@ -9,7 +9,7 @@
   },
   "variables": {
     "vnetName": "myVNet",
-    "subnetName": "mySubnet",
+    "subnetName": "BackedSubnet",
     "lbName": "myLoadBalancer",
     "lbFrontend": "LoadBalancerFrontEnd",
     "lbBackend": "LoadBalancerBackEnd",
