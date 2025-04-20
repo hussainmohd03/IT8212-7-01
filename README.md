@@ -9,10 +9,8 @@ languages:
 - bicep
 - json
 ---
-# 2 VMs in VNET - Internal Load Balancer and LB rules
+# IT8212 - LAB 7-03 Updated
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Fhussainmohd03%2FIT8212-7-01%2Fmain%2Fazuredeploy.json)
-
-This template allows you to create 2 Virtual Machines under an Internal Load balancer. To learn more about how to deploy the template, see the [quickstart](https://docs.microsoft.com/azure/load-balancer/quickstart-load-balancer-standard-internal-template) article.
 
 This template also deploys a Storage Account, Virtual Network, Availability Set and Network Interfaces.
 
