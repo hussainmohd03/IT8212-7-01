@@ -17,9 +17,23 @@
     "ipName": "myPublicIP",
     "nicName": "nic",
     "vmName": "myVM",
-    "nsgName": "vmNSG"
+    "nsgName": "vmNSG",
+    "availSetName": "myAvailabilitySet"
   },
   "resources": [
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "apiVersion": "2022-11-01",
+      "name": "[variables('availSetName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Aligned"
+      },
+      "properties": {
+        "platformFaultDomainCount": 2,
+        "platformUpdateDomainCount": 2
+      }
+    },
     {
       "type": "Microsoft.Network/publicIPAddresses",
       "apiVersion": "2022-05-01",
@@ -175,9 +189,13 @@
         "count": "[parameters('vmCount')]"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', format('{0}{1}', variables('nicName'), copyIndex()))]"
+        "[resourceId('Microsoft.Network/networkInterfaces', format('{0}{1}', variables('nicName'), copyIndex()))]",
+        "[resourceId('Microsoft.Compute/availabilitySets', variables('availSetName'))]"
       ],
       "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availSetName'))]"
+        },
         "hardwareProfile": {
           "vmSize": "Standard_B1s"
         },
