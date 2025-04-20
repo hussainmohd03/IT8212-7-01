@@ -22,7 +22,7 @@
     "loadBalancingRuleName": "httpRule",
     "vnetName": "myVnet",
     "subnetName": "backedsubnet",
-    "subnetPrefix": "10.0.0.0/24"
+    "subnetPrefix": "10.0.0.0/16"
   },
   "resources": [
     {
@@ -40,7 +40,7 @@
           {
             "name": "[variables('subnetName')]",
             "properties": {
-              "addressPrefix": "[variables('subnetPrefix')]"
+              "addressPrefix": "10.0.2.0/24"
             }
           }
         ]
