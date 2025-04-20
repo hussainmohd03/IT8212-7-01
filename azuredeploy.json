@@ -37,6 +37,7 @@
   "resources": [
     {
       "type": "Microsoft.Network/virtualNetworks",
+      "name": "myVnet",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "properties": {
@@ -57,6 +58,7 @@
     },
     {
       "type": "Microsoft.Network/loadBalancers",
+      "name": "myILB",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "name": "[variables('loadBalancerName')]",
@@ -82,6 +84,7 @@
     },
     {
       "type": "Microsoft.Network/networkInterfaces",
+      "name": "vm1-nic",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "name": "[variables('nic1Name')]",
@@ -107,6 +110,7 @@
     },
     {
       "type": "Microsoft.Network/networkInterfaces",
+      "name": "vm2-nic",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "name": "[variables('nic2Name')]",
@@ -132,6 +136,7 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines",
+      "name": "myVM1",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "name": "[variables('vm1Name')]",
@@ -170,6 +175,7 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines",
+      "name": "myVM2",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "name": "[variables('vm2Name')]",
@@ -207,7 +213,8 @@
       }
     },
     {
-      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "type": "Microsoft.Compute/virtualMachines/extensions",	
+      "name": "myVM1/installIIS",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "name": "[concat(variables('vm1Name'), '/installIIS')]",
@@ -229,6 +236,7 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "myVM2/installIIS",
       "apiVersion": "2020-06-01",
       "location": "[parameters('location')]",
       "name": "[concat(variables('vm2Name'), '/installIIS')]",
