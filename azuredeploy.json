@@ -1,44 +1,88 @@
 {
   "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.25.53.49325",
+      "templateHash": "6587483520975479408"
+    }
+  },
   "parameters": {
-    "location": {
-      "type": "string",
-      "defaultValue": "East US",
-      "metadata": {
-        "description": "Location for all resources."
-      }
-    },
     "adminUsername": {
       "type": "string",
       "metadata": {
-        "description": "Admin username for VM."
+        "description": "Admin username"
       }
     },
     "adminPassword": {
       "type": "securestring",
       "metadata": {
-        "description": "Admin password for VM."
+        "description": "Admin password"
+      }
+    },
+    "vmNamePrefix": {
+      "type": "string",
+      "defaultValue": "BackendVM",
+      "metadata": {
+        "description": "Prefix to use for VM names"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D2s_v3",
+      "metadata": {
+        "description": "Size of the virtual machines"
       }
     }
   },
   "variables": {
-    "vnetName": "myVnet",
-    "subnetName": "mySubnet",
-    "nic1Name": "vm1-nic",
-    "nic2Name": "vm2-nic",
-    "vm1Name": "myVM1",
-    "vm2Name": "myVM2",
-    "loadBalancerName": "myILB",
-    "backendPoolName": "myBackendPool",
-    "frontendIPConfigName": "myFrontendIP",
-    "scriptUrl": "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/main/install-iis.ps1"
+    "availabilitySetName": "AvSet",
+    "storageAccountType": "Standard_LRS",
+    "storageAccountName": "[uniqueString(resourceGroup().id)]",
+    "virtualNetworkName": "vNet",
+    "subnetName": "backendSubnet",
+    "loadBalancerName": "ilb",
+    "networkInterfaceName": "nic",
+    "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnetName'))]",
+    "numberOfInstances": 2,
+    "iisInstallScriptUri": "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/main/install-iis.ps1"
   },
   "resources": [
     {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-01-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[variables('storageAccountType')]"
+      },
+      "kind": "StorageV2"
+    },
+    {
+      "type": "Microsoft.Compute/availabilitySets",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('availabilitySetName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Aligned"
+      },
+      "properties": {
+        "platformUpdateDomainCount": 2,
+        "platformFaultDomainCount": 2
+      }
+    },
+    {
       "type": "Microsoft.Network/virtualNetworks",
-      "name": "myVnet",
-      "apiVersion": "2020-06-01",
+      "apiVersion": "2023-09-01",
+      "name": "[variables('virtualNetworkName')]",
       "location": "[parameters('location')]",
       "properties": {
         "addressSpace": {
@@ -50,106 +94,124 @@
           {
             "name": "[variables('subnetName')]",
             "properties": {
-              "addressPrefix": "10.0.0.0/24"
+              "addressPrefix": "10.0.2.0/24"
             }
           }
         ]
       }
     },
     {
-      "type": "Microsoft.Network/loadBalancers",
-      "name": "myILB",
-      "apiVersion": "2020-06-01",
+      "copy": {
+        "name": "networkInterface",
+        "count": "[length(range(0, variables('numberOfInstances')))]"
+      },
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}{1}', variables('networkInterfaceName'), range(0, variables('numberOfInstances'))[copyIndex()])]",
       "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              },
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'BackendPool1')]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/loadBalancers",
+      "apiVersion": "2023-09-01",
       "name": "[variables('loadBalancerName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
       "properties": {
         "frontendIPConfigurations": [
           {
-            "name": "[variables('frontendIPConfigName')]",
             "properties": {
-              "privateIPAddress": "10.0.0.4",
-              "privateIPAllocationMethod": "Static",
               "subnet": {
-                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
-              }
-            }
+                "id": "[variables('subnetRef')]"
+              },
+              "privateIPAddress": "10.0.2.6",
+              "privateIPAllocationMethod": "Static"
+            },
+            "name": "LoadBalancerFrontend"
           }
         ],
         "backendAddressPools": [
           {
-            "name": "[variables('backendPoolName')]"
+            "name": "BackendPool1"
           }
-        ]
-      }
-    },
-    {
-      "type": "Microsoft.Network/networkInterfaces",
-      "name": "vm1-nic",
-      "apiVersion": "2020-06-01",
-      "location": "[parameters('location')]",
-      "name": "[variables('nic1Name')]",
-      "properties": {
-        "ipConfigurations": [
+        ],
+        "loadBalancingRules": [
           {
-            "name": "ipconfig1",
             "properties": {
-              "privateIPAllocationMethod": "Static",
-              "privateIPAddress": "10.0.0.5",
-              "subnet": {
-                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIpConfigurations', variables('loadBalancerName'), 'LoadBalancerFrontend')]"
               },
-              "loadBalancerBackendAddressPools": [
-                {
-                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('backendPoolName'))]"
-                }
-              ]
-            }
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), 'BackendPool1')]"
+              },
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('loadBalancerName'), 'lbprobe')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 80,
+              "backendPort": 80,
+              "idleTimeoutInMinutes": 15
+            },
+            "name": "lbrule"
           }
-        ]
-      }
-    },
-    {
-      "type": "Microsoft.Network/networkInterfaces",
-      "name": "vm2-nic",
-      "apiVersion": "2020-06-01",
-      "location": "[parameters('location')]",
-      "name": "[variables('nic2Name')]",
-      "properties": {
-        "ipConfigurations": [
+        ],
+        "probes": [
           {
-            "name": "ipconfig1",
             "properties": {
-              "privateIPAllocationMethod": "Static",
-              "privateIPAddress": "10.0.0.6",
-              "subnet": {
-                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]"
-              },
-              "loadBalancerBackendAddressPools": [
-                {
-                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('loadBalancerName'), variables('backendPoolName'))]"
-                }
-              ]
-            }
+              "protocol": "Tcp",
+              "port": 80,
+              "intervalInSeconds": 15,
+              "numberOfProbes": 2
+            },
+            "name": "lbprobe"
           }
         ]
-      }
-    },
-    {
-      "type": "Microsoft.Compute/virtualMachines",
-      "name": "myVM1",
-      "apiVersion": "2020-06-01",
-      "location": "[parameters('location')]",
-      "name": "[variables('vm1Name')]",
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', variables('nic1Name'))]",
-        "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
-      ],
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "vm",
+        "count": "[length(range(0, variables('numberOfInstances')))]"
+      },
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}{1}', parameters('vmNamePrefix'), range(0, variables('numberOfInstances'))[copyIndex()])]",
+      "location": "[parameters('location')]",
       "properties": {
+        "availabilitySet": {
+          "id": "[resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySetName'))]"
+        },
         "hardwareProfile": {
-          "vmSize": "Standard_B2s"
+          "vmSize": "[parameters('vmSize')]"
         },
         "osProfile": {
-          "computerName": "[variables('vm1Name')]",
+          "computerName": "[format('{0}{1}', parameters('vmNamePrefix'), range(0, variables('numberOfInstances'))[copyIndex()])]",
           "adminUsername": "[parameters('adminUsername')]",
           "adminPassword": "[parameters('adminPassword')]"
         },
@@ -167,95 +229,60 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nic1Name'))]"
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', format('{0}{1}', variables('networkInterfaceName'), range(0, variables('numberOfInstances'))[copyIndex()]))]"
             }
           ]
-        }
-      }
-    },
-    {
-      "type": "Microsoft.Compute/virtualMachines",
-      "name": "myVM2",
-      "apiVersion": "2020-06-01",
-      "location": "[parameters('location')]",
-      "name": "[variables('vm2Name')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', variables('nic2Name'))]",
-        "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
-      ],
-      "properties": {
-        "hardwareProfile": {
-          "vmSize": "Standard_B2s"
         },
-        "osProfile": {
-          "computerName": "[variables('vm2Name')]",
-          "adminUsername": "[parameters('adminUsername')]",
-          "adminPassword": "[parameters('adminPassword')]"
-        },
-        "storageProfile": {
-          "imageReference": {
-            "publisher": "MicrosoftWindowsServer",
-            "offer": "WindowsServer",
-            "sku": "2019-Datacenter",
-            "version": "latest"
-          },
-          "osDisk": {
-            "createOption": "FromImage"
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2023-01-01').primaryEndpoints.blob]"
           }
-        },
-        "networkProfile": {
-          "networkInterfaces": [
-            {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nic2Name'))]"
-            }
-          ]
         }
-      }
-    },
-    {
-      "type": "Microsoft.Compute/virtualMachines/extensions",	
-      "name": "myVM1/installIIS",
-      "apiVersion": "2020-06-01",
-      "location": "[parameters('location')]",
-      "name": "[concat(variables('vm1Name'), '/installIIS')]",
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('vm1Name'))]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Compute",
-        "type": "CustomScriptExtension",
-        "typeHandlerVersion": "1.10",
-        "autoUpgradeMinorVersion": true,
-        "settings": {
-          "fileUris": [
-            "[variables('scriptUrl')]"
-          ],
-          "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File install-iis.ps1"
-        }
-      }
+        "[resourceId('Microsoft.Compute/availabilitySets', variables('availabilitySetName'))]",
+        "[resourceId('Microsoft.Network/networkInterfaces', format('{0}{1}', variables('networkInterfaceName'), range(0, variables('numberOfInstances'))[copyIndex()]))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
     },
     {
       "type": "Microsoft.Compute/virtualMachines/extensions",
-      "name": "myVM2/installIIS",
-      "apiVersion": "2020-06-01",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}-iisExtension', parameters('vmNamePrefix'))]",
       "location": "[parameters('location')]",
-      "name": "[concat(variables('vm2Name'), '/installIIS')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('vm2Name'))]"
-      ],
       "properties": {
         "publisher": "Microsoft.Compute",
         "type": "CustomScriptExtension",
         "typeHandlerVersion": "1.10",
-        "autoUpgradeMinorVersion": true,
         "settings": {
-          "fileUris": [
-            "[variables('scriptUrl')]"
-          ],
-          "commandToExecute": "powershell -ExecutionPolicy Unrestricted -File install-iis.ps1"
+          "scriptUri": "[variables('iisInstallScriptUri')]"
+        },
+        "protectedSettings": {
+          "scriptArguments": ""
         }
-      }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', format('{0}{1}', parameters('vmNamePrefix'), range(0, variables('numberOfInstances'))[copyIndex()]))]"
+      ]
     }
   ],
-  "outputs": {}
+  "outputs": {
+    "location": {
+      "type": "string",
+      "value": "[parameters('location')]"
+    },
+    "name": {
+      "type": "string",
+      "value": "[variables('loadBalancerName')]"
+    },
+    "resourceGroupName": {
+      "type": "string",
+      "value": "[resourceGroup().name]"
+    },
+    "resourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/loadBalancers', variables('loadBalancerName'))]"
+    }
+  }
 }
