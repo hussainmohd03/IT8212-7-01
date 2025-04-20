@@ -21,7 +21,7 @@
     "probeName": "myHealthProbe",
     "loadBalancingRuleName": "httpRule",
     "vnetName": "myVnet",
-    "subnetName": "default",
+    "subnetName": "backedsubnet",
     "subnetPrefix": "10.0.0.0/24"
   },
   "resources": [
