@@ -52,8 +52,7 @@
     "loadBalancerName": "ilb",
     "networkInterfaceName": "nic",
     "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnetName'))]",
-    "numberOfInstances": 2,
-    "iisInstallScriptUri": "https://raw.githubusercontent.com/hussainmohd03/IT8212-7-01/main/install-iis.ps1"
+    "numberOfInstances": 2
   },
   "resources": [
     {
@@ -248,23 +247,21 @@
     },
     {
       "type": "Microsoft.Compute/virtualMachines/extensions",
-      "apiVersion": "2023-09-01",
-      "name": "[format('{0}-iisExtension', parameters('vmNamePrefix'))]",
+      "name": "[concat(format('{0}{1}', parameters('vmNamePrefix'), range(0, variables('numberOfInstances'))[copyIndex()]), '/installIIS')]",
+      "apiVersion": "2021-03-01",
       "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', format('{0}{1}', parameters('vmNamePrefix'), range(0, variables('numberOfInstances'))[copyIndex()]))]"
+      ],
       "properties": {
         "publisher": "Microsoft.Compute",
         "type": "CustomScriptExtension",
         "typeHandlerVersion": "1.10",
+        "autoUpgradeMinorVersion": true,
         "settings": {
-          "scriptUri": "[variables('iisInstallScriptUri')]"
-        },
-        "protectedSettings": {
-          "scriptArguments": ""
+          "commandToExecute": "powershell -ExecutionPolicy Unrestricted -Command Install-WindowsFeature -Name Web-Server -IncludeManagementTools"
         }
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', format('{0}{1}', parameters('vmNamePrefix'), range(0, variables('numberOfInstances'))[copyIndex()]))]"
-      ]
+      }
     }
   ],
   "outputs": {
